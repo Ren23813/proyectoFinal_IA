@@ -146,6 +146,8 @@ class Board:
         """
         occupied = set(cells)
         for (r, c) in cells:
+            if self.own_grid[r, c] == OWN_SHIP:
+                return False
             for dr in (-1, 0, 1):
                 for dc in (-1, 0, 1):
                     nr, nc = r + dr, c + dc
