@@ -633,6 +633,8 @@ def self_play_train(
     best_win_rate = 0.0    # se actualiza siempre, independiente de save_best
     wins_window   = 0
     losses_window = []
+    loss_history  = []     # (episodio, avg_loss) para graficar al final
+    history_log   = []     # lista de dicts: {episode, avg_loss, win_rate, epsilon}
 
     print(f"\n{'═'*62}")
     print(f"  Entrenamiento self-play — Red Neuronal")
@@ -733,6 +735,13 @@ def self_play_train(
                     agent.save_weights(save_prefix + "_best")
                     print(f"    ↑ Nuevo mejor win rate — pesos guardados.")
 
+            history_log.append({
+                "episode":  episode,
+                "avg_loss": avg_loss,
+                "win_rate": win_rate,
+                "epsilon":  agent.epsilon,
+            })
+
             wins_window   = 0
             losses_window = []
 
@@ -742,7 +751,58 @@ def self_play_train(
     print(f"  Mejor win rate observado:   {best_win_rate:.1%}")
     print(f"{'═'*62}\n")
 
-    return agent
+    return agent, history_log
+
+
+def plot_training(history_log: list, title: str = "RN — Loss vs. Épocas") -> None:
+    """
+    Grafica avg_loss y win_rate a lo largo del entrenamiento.
+    Detecta sobreentrenamiento: si la loss deja de bajar pero el win_rate
+    también estanca o cae, hay evidencia de overfitting al self-play.
+
+    Parámetro
+    ---------
+    history_log : lista de dicts devuelta por self_play_train()
+                  cada dict tiene: episode, avg_loss, win_rate, epsilon
+    """
+    import matplotlib.pyplot as plt
+
+    episodes  = [h["episode"]  for h in history_log]
+    avg_loss  = [h["avg_loss"] for h in history_log]
+    win_rates = [h["win_rate"] for h in history_log]
+
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(9, 6), sharex=True)
+    fig.suptitle(title, fontsize=13, fontweight="bold")
+
+    # ── Loss ────────────────────────────────────────────────────────────────
+    ax1.plot(episodes, avg_loss, color="#e05c5c", linewidth=1.8, label="Avg Loss (MSE)")
+    ax1.set_ylabel("Loss (MSE)")
+    ax1.legend(loc="upper right")
+    ax1.grid(alpha=0.3)
+
+    # Media móvil de 3 puntos para ver la tendencia limpia
+    if len(avg_loss) >= 3:
+        smooth = [
+            sum(avg_loss[max(0, i-1): i+2]) / len(avg_loss[max(0, i-1): i+2])
+            for i in range(len(avg_loss))
+        ]
+        ax1.plot(episodes, smooth, color="#8b0000", linewidth=1,
+                 linestyle="--", alpha=0.6, label="Tendencia (mov. avg)")
+        ax1.legend(loc="upper right")
+
+    # ── Win rate ─────────────────────────────────────────────────────────────
+    ax2.plot(episodes, win_rates, color="#4a90d9", linewidth=1.8, label="Win Rate (vs. clone)")
+    ax2.axhline(0.5, color="gray", linestyle=":", linewidth=1, label="50% (referencia)")
+    ax2.set_ylabel("Win Rate")
+    ax2.set_xlabel("Episodio")
+    ax2.set_ylim(-0.05, 1.05)
+    ax2.legend(loc="lower right")
+    ax2.grid(alpha=0.3)
+
+    plt.tight_layout()
+    plt.savefig("rn_training_curve.png", dpi=150, bbox_inches="tight")
+    print("Gráfica guardada → rn_training_curve.png")
+    plt.show()
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -751,12 +811,12 @@ def self_play_train(
 
 if __name__ == "__main__":
     inicio = time.time()
+    import matplotlib.pyplot as plt
     from battleshipENV import RandomAgent
 
-    # ── Hiperparámetros (cambiar para la pelea final) ─────────────────────
-    # Para resultados significativos usar n_episodes >= 5000, pero tarda bastante.
+    # ── Hiperparámetros (cambiar para la pelea final 🤑) ─────────────────────
     HPARAMS = dict(
-        n_episodes            = 3000,   # cantidad de entrenamientos
+        n_episodes            = 800,   # mantener en 600-800; sino, overfitting
         update_opponent_every = 300,
         random_opponent_ratio = 0.2,    # 20% de partidas contra agente aleatorio
         log_every             = 300,
@@ -782,10 +842,52 @@ if __name__ == "__main__":
         seed              = 42,
     )
 
-    agent = self_play_train(agent, **HPARAMS)
+    agent, history = self_play_train(agent, **HPARAMS)
+
+    # ── Gráfica: Loss y Win Rate vs. Episodios ────────────────────────────────
+    episodes  = [h["episode"]  for h in history]
+    losses    = [h["avg_loss"] for h in history]
+    win_rates = [h["win_rate"] for h in history]
+    epsilons  = [h["epsilon"]  for h in history]
+
+    fig, axes = plt.subplots(3, 1, figsize=(9, 10), sharex=True)
+    fig.suptitle("Red Neuronal — Curvas de Entrenamiento (self-play)", fontsize=13, fontweight="bold")
+
+    # ── Subgráfica 1: Loss ────────────────────────────────────────────────────
+    ax1 = axes[0]
+    ax1.plot(episodes, losses, color="#e63946", linewidth=1.8, label="Avg Loss (MSE)")
+    ax1.set_ylabel("Loss promedio (MSE)")
+    ax1.set_title("BattleNet — Pérdida por ventana de episodios")
+    ax1.legend()
+    ax1.grid(True, alpha=0.3)
+
+    # ── Subgráfica 2: Win Rate ────────────────────────────────────────────────
+    ax2 = axes[1]
+    ax2.plot(episodes, [w * 100 for w in win_rates],
+             color="#457b9d", linewidth=1.8, label="Win Rate (%)")
+    ax2.axhline(50, color="gray", linestyle="--", linewidth=1.0, alpha=0.6, label="50% (azar)")
+    ax2.set_ylabel("Win Rate (%)")
+    ax2.set_ylim(0, 105)
+    ax2.set_title("Tasa de victoria en la ventana de log")
+    ax2.legend()
+    ax2.grid(True, alpha=0.3)
+
+    # ── Subgráfica 3: Epsilon ─────────────────────────────────────────────────
+    ax3 = axes[2]
+    ax3.plot(episodes, epsilons, color="#2a9d8f", linewidth=1.8, label="ε (exploración)")
+    ax3.set_ylabel("ε")
+    ax3.set_xlabel("Episodio")
+    ax3.set_title("Decaimiento de ε (exploración → explotación)")
+    ax3.legend()
+    ax3.grid(True, alpha=0.3)
+
+    plt.tight_layout()
+    plt.savefig("rn_training_curves.png", dpi=150, bbox_inches="tight")
+    print("Gráfica guardada → rn_training_curves.png")
+    plt.show()
 
     # ── Evaluación final contra agente aleatorio ──────────────────────────────
-    print("Evaluando vs. Agente Aleatorio (200 partidas)...")
+    print("Evaluando vs. Agente Aleatorio (n partidas)...")
     env          = BattleshipEnv()
     random_agent = RandomAgent("Random")
 
@@ -799,6 +901,6 @@ if __name__ == "__main__":
             wins += 1
 
     print(f"\n  Victoria: {wins}/{total} ({wins/total:.1%}) vs. agente aleatorio")
-    print("  (>55% indica aprendizaje útil, >65% es muy bueno para 3000 eps)")
-    fin = time.time()
-    print("Tardó en ejecutar:", fin-inicio)
+    print("  (>55% indica aprendizaje útil")
+    final = time.time()
+    print("tiempo demorado:", final-inicio)
