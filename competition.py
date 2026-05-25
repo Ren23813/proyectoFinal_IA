@@ -23,17 +23,7 @@ Uso rápido
     python competition.py --retrain     ← fuerza reentrenamiento aunque existan archivos
     python competition.py --no-train    ← sólo carga y compite (debe haber checkpoints)
 
-Archivos generados
-──────────────────
-    td_agent_vtable.pkl                 → pesos del agente TD
-    rn_agent_battle.npz                 → pesos BattleNet
-    rn_agent_placement.npz             → pesos PlacementNet
-    plot_training_metrics.png
-    plot_heatmaps_training.png
-    plot_heatmaps_competition.png
-    plot_emergent_strategies.png
-    plot_competition_dashboard.png
-    plot_replay_visual.png
+
 """
 
 # ── std-lib ────────────────────────────────────────────────────────────────
@@ -66,17 +56,11 @@ from TDLearning import TDAgent
 from RN import NeuralNetAgent, self_play_train
 
 
-# ══════════════════════════════════════════════════════════════════════════════
 # RUTAS DE GUARDADO
-# ══════════════════════════════════════════════════════════════════════════════
-
 TD_SAVE_PATH   = "td_agent_vtable.pkl"
 RN_SAVE_PREFIX = "rn_agent"
 
-
-# ══════════════════════════════════════════════════════════════════════════════
 # GUARDAR / CARGAR AGENTES
-# ══════════════════════════════════════════════════════════════════════════════
 
 def save_td_agent(agent: TDAgent, path: str = TD_SAVE_PATH) -> None:
     """Serializa v_table + epsilon del TDAgent en disco."""
@@ -119,9 +103,7 @@ def _rn_files_exist(prefix: str = RN_SAVE_PREFIX) -> bool:
             os.path.exists(f"{prefix}_placement.npz"))
 
 
-# ══════════════════════════════════════════════════════════════════════════════
 # ENTRENAMIENTO CON RECOLECCIÓN DE MÉTRICAS
-# ══════════════════════════════════════════════════════════════════════════════
 
 def train_td_with_metrics(
     episodes:              int   = 800,
@@ -327,9 +309,7 @@ def train_rn_with_metrics(
     return agent, history_log, shot_heatmap, placement_heatmap
 
 
-# ══════════════════════════════════════════════════════════════════════════════
 # EVALUACIÓN VS AGENTE ALEATORIO
-# ══════════════════════════════════════════════════════════════════════════════
 
 def evaluate_vs_random(agent, n_games: int = 300, label: str = "Agent") -> float:
     """
@@ -347,15 +327,12 @@ def evaluate_vs_random(agent, n_games: int = 300, label: str = "Agent") -> float
     print(f"  {label:20s}  vs Random: {wins:>4}/{n_games}  ({wr:.1%})")
     return wr
 
-
-# ══════════════════════════════════════════════════════════════════════════════
 # COMPETENCIA DIRECTA
-# ══════════════════════════════════════════════════════════════════════════════
 
 def run_competition(
     agent_td: TDAgent,
     agent_rn: NeuralNetAgent,
-    n_games:  int = 5000,
+    n_games:  int = 1000,
 ) -> dict:
     """
     Enfrenta TD vs RN en n_games partidas con turnos alternos (par → TD es j0;
@@ -490,10 +467,7 @@ def run_competition(
         "place_hm_rn": place_hm_rn,
     }
 
-
-# ══════════════════════════════════════════════════════════════════════════════
 # CAPTURAR REPLAY DE UNA PARTIDA
-# ══════════════════════════════════════════════════════════════════════════════
 
 def capture_replay(agent_td: TDAgent, agent_rn: NeuralNetAgent) -> tuple:
     """
@@ -549,10 +523,7 @@ def capture_replay(agent_td: TDAgent, agent_rn: NeuralNetAgent) -> tuple:
     return frames, env.winner
 
 
-# ══════════════════════════════════════════════════════════════════════════════
 # PALETAS Y HELPER DE HEATMAP
-# ══════════════════════════════════════════════════════════════════════════════
-
 CMAP_SHOTS = LinearSegmentedColormap.from_list(
     "shots", ["#eef4ff", "#0050d9"], N=256)
 CMAP_PLACE = LinearSegmentedColormap.from_list(
@@ -585,13 +556,9 @@ def _draw_heatmap(ax, data: np.ndarray, title: str, cmap,
                     ha="center", va="center", fontsize=6, color=txt_color)
     return im
 
-
-# ══════════════════════════════════════════════════════════════════════════════
-# PLOT 1 ─ MÉTRICAS INDIVIDUALES DE ENTRENAMIENTO
-# ══════════════════════════════════════════════════════════════════════════════
-
+# MÉTRICAS INDIVIDUALES DE ENTRENAMIENTO
 def plot_training_metrics(td_history: list, rn_history: list,
-                          save_path: str = "plot_training_metrics.png") -> None:
+                          save_path: str = "graficas/plot_training_metrics.png") -> None:
     """
     2 filas × 3 columnas:
       Fila TD:  Win Rate │ Reward promedio  │ Epsilon
@@ -661,14 +628,12 @@ def plot_training_metrics(td_history: list, rn_history: list,
     plt.close()
 
 
-# ══════════════════════════════════════════════════════════════════════════════
 # PLOT 2 ─ HEATMAPS DE DISPAROS Y COLOCACIÓN
-# ══════════════════════════════════════════════════════════════════════════════
 
 def plot_heatmaps(shot_td: np.ndarray, place_td: np.ndarray,
                   shot_rn: np.ndarray, place_rn: np.ndarray,
                   title: str = "Heatmaps",
-                  save_path: str = "plot_heatmaps.png") -> None:
+                  save_path: str = "graficas/plot_heatmaps.png") -> None:
     """
     2×2 grid:
       [TD Disparos | RN Disparos ]
@@ -690,13 +655,10 @@ def plot_heatmaps(shot_td: np.ndarray, place_td: np.ndarray,
     print(f"  Guardada → {save_path}")
     plt.close()
 
-
-# ══════════════════════════════════════════════════════════════════════════════
 # PLOT 3 ─ ESTRATEGIAS EMERGENTES
-# ══════════════════════════════════════════════════════════════════════════════
 
 def plot_emergent_strategies(agent_td: TDAgent, agent_rn: NeuralNetAgent,
-                             save_path: str = "plot_emergent_strategies.png") -> None:
+                             save_path: str = "graficas/plot_emergent_strategies.png") -> None:
     """
     Muestra qué aprendieron los modelos sobre el tablero vacío:
     · TD:  v_table (valor por celda)
@@ -734,14 +696,12 @@ def plot_emergent_strategies(agent_td: TDAgent, agent_rn: NeuralNetAgent,
     plt.close()
 
 
-# ══════════════════════════════════════════════════════════════════════════════
 # PLOT 4 ─ DASHBOARD DE COMPETENCIA
-# ══════════════════════════════════════════════════════════════════════════════
 
 def plot_competition_dashboard(results: dict,
                                wr_td_vs_rand: float,
                                wr_rn_vs_rand: float,
-                               save_path: str = "plot_competition_dashboard.png") -> None:
+                               save_path: str = "graficas/plot_competition_dashboard.png") -> None:
     """
     Dashboard 2×3:
       [Win Rate acumulado (ancho 2)         │ Pie chart final    ]
@@ -845,14 +805,11 @@ def plot_competition_dashboard(results: dict,
     print(f"  Guardada → {save_path}")
     plt.close()
 
-
-# ══════════════════════════════════════════════════════════════════════════════
 # PLOT 5 ─ REPLAY VISUAL
-# ══════════════════════════════════════════════════════════════════════════════
 
 def plot_replay_visual(frames: list, winner: int,
                        max_frames: int = 12,
-                       save_path: str = "plot_replay_visual.png") -> None:
+                       save_path: str = "graficas/plot_replay_visual.png") -> None:
     """
     Selecciona max_frames snapshots distribuidos uniformemente en la partida
     y los muestra en una cuadrícula.  Cada snapshot muestra el tablero de
@@ -931,18 +888,15 @@ def plot_replay_visual(frames: list, winner: int,
     plt.close()
 
 
-# ══════════════════════════════════════════════════════════════════════════════
 # MAIN
-# ══════════════════════════════════════════════════════════════════════════════
-
 def _parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Competencia TD vs RN en Battleship")
     p.add_argument("--retrain",  action="store_true",
                    help="Forzar reentrenamiento aunque existan checkpoints")
     p.add_argument("--no-train", action="store_true",
                    help="Solo cargar modelos y ejecutar competencia (requiere checkpoints)")
-    p.add_argument("--games",    type=int, default=5000,
-                   help="Número de partidas en la competencia (default: 5000)")
+    p.add_argument("--games",    type=int, default=1000,
+                   help="Número de partidas en la competencia (default: 1000)")
     p.add_argument("--episodes", type=int, default=800,
                    help="Episodios de entrenamiento por modelo (default: 800)")
     return p.parse_args()
@@ -960,9 +914,7 @@ def main():
     force_retrain = args.retrain
     no_train      = args.no_train
 
-    # ─────────────────────────────────────────────────────────────────────────
-    # PASO 1 ─ ENTRENAR O CARGAR MODELOS
-    # ─────────────────────────────────────────────────────────────────────────
+    #  ENTRENAR O CARGAR MODELOS
 
     td_history = []
     rn_history = []
@@ -971,8 +923,8 @@ def main():
     shot_hm_rn_tr  = np.zeros((BOARD_SIZE, BOARD_SIZE))
     place_hm_rn_tr = np.zeros((BOARD_SIZE, BOARD_SIZE))
 
-    TD_EPISODES = 3000    # TD ya converge aquí
-    RN_EPISODES = 3000
+    TD_EPISODES = 800    # TD ya converge aquí
+    RN_EPISODES = 800
 
     # ── TD-Learning ──────────────────────────────────────────────────────────
     if not no_train and (force_retrain or not os.path.exists(TD_SAVE_PATH)):
@@ -998,7 +950,6 @@ def main():
         (agent_rn, rn_history,
          shot_hm_rn_tr, place_hm_rn_tr) = train_rn_with_metrics(
             n_episodes  = RN_EPISODES,
-            log_every   = 300,
             save_prefix = RN_SAVE_PREFIX,
         )
     elif _rn_files_exist(RN_SAVE_PREFIX):
@@ -1012,9 +963,7 @@ def main():
     agent_rn.training = False
     agent_rn.epsilon  = 0.0
 
-    # ─────────────────────────────────────────────────────────────────────────
     # PASO 2 ─ MÉTRICAS DE ENTRENAMIENTO
-    # ─────────────────────────────────────────────────────────────────────────
     print("\n[Gráficas]  Métricas de entrenamiento individual...")
     plot_training_metrics(td_history, rn_history)
 
@@ -1025,54 +974,41 @@ def main():
             shot_hm_td_tr, place_hm_td_tr,
             shot_hm_rn_tr, place_hm_rn_tr,
             title     = "Heatmaps — Fase de Entrenamiento",
-            save_path = "plot_heatmaps_training.png",
+            save_path = "graficas/plot_heatmaps_training.png",
         )
 
-    # ─────────────────────────────────────────────────────────────────────────
-    # PASO 3 ─ EVALUACIÓN vs AGENTE ALEATORIO (línea base)
-    # ─────────────────────────────────────────────────────────────────────────
+    # EVALUACIÓN vs AGENTE ALEATORIO (línea base)
     print("\n[Eval]  Evaluando ambos modelos vs Agente Aleatorio (300 partidas c/u)...")
     wr_td = evaluate_vs_random(agent_td, n_games=300, label="TD-Learning")
     wr_rn = evaluate_vs_random(agent_rn, n_games=300, label="Red Neuronal")
 
-    # ─────────────────────────────────────────────────────────────────────────
-    # PASO 4 ─ COMPETENCIA DIRECTA
-    # ─────────────────────────────────────────────────────────────────────────
+    #COMPETENCIA DIRECTA
     results = run_competition(agent_td, agent_rn, n_games=args.games)
 
-    # ─────────────────────────────────────────────────────────────────────────
-    # PASO 5 ─ REPLAY VISUAL
-    # ─────────────────────────────────────────────────────────────────────────
+    #  REPLAY VISUAL
     print("[Gráficas]  Capturando replay de una partida de ejemplo...")
     frames, replay_winner = capture_replay(agent_td, agent_rn)
     plot_replay_visual(frames, replay_winner, max_frames=12)
 
-    # ─────────────────────────────────────────────────────────────────────────
-    # PASO 6 ─ HEATMAPS DE COMPETENCIA
-    # ─────────────────────────────────────────────────────────────────────────
+    #  HEATMAPS DE COMPETENCIA
     print("[Gráficas]  Heatmaps de disparos y colocación (competencia)...")
     plot_heatmaps(
         results["shot_hm_td"], results["place_hm_td"],
         results["shot_hm_rn"], results["place_hm_rn"],
         title     = "Heatmaps — Fase de Competencia  (TD vs RN)",
-        save_path = "plot_heatmaps_competition.png",
+        save_path = "graficas/plot_heatmaps_competition.png",
     )
 
-    # ─────────────────────────────────────────────────────────────────────────
-    # PASO 7 ─ ESTRATEGIAS EMERGENTES
-    # ─────────────────────────────────────────────────────────────────────────
+    # ESTRATEGIAS EMERGENTES
     print("[Gráficas]  Estrategias emergentes...")
     plot_emergent_strategies(agent_td, agent_rn)
 
-    # ─────────────────────────────────────────────────────────────────────────
-    # PASO 8 ─ DASHBOARD DE COMPETENCIA
-    # ─────────────────────────────────────────────────────────────────────────
+   
+    # DASHBOARD DE COMPETENCIA
     print("[Gráficas]  Dashboard de competencia...")
     plot_competition_dashboard(results, wr_td, wr_rn)
 
-    # ─────────────────────────────────────────────────────────────────────────
     # RESUMEN FINAL
-    # ─────────────────────────────────────────────────────────────────────────
     tf       = time.time()
     w_td     = results["wins_td"]
     w_rn     = results["wins_rn"]
